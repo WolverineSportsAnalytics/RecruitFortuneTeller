@@ -16,7 +16,7 @@ Go to your directory where you cloned the repository
 
 `$ virtualenv ENV`
 
-`$ source bin/activate`
+`$ source env/bin/activate`
 
 #### Install the requirements
     - Make sure in home directory 
@@ -36,6 +36,24 @@ Go to your directory where you cloned the repository
 `$ deactivate`
 
 Commit the requirements.txt file 
+
+# Configure PyCharm for Virtual ENV Interpreter Instructions
+
+`git pull`
+
+Open PyCharm
+
+Go to PyCharm > Preferences > Project: Name > Project Interpreter
+
+Click the Settings/Gear button next to the project Interpreter
+
+Click Add Local
+
+Navigate in the navigator to where your project is stored
+
+Click ENV > bin 
+
+Click Python then select okay
 
 ### How to Run 
 
