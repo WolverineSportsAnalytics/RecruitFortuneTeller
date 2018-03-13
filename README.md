@@ -19,8 +19,9 @@ Go to your directory where you cloned the repository
 `$ source bin/activate`
 
 #### Install the requirements
- 
-`pip install ../requirements.txt`
+    - Make sure in home directory 
+
+`pip install requirements.txt`
 
 #### Deactivate the Virtual ENV
 `$ deactivate`
@@ -30,7 +31,9 @@ Go to your directory where you cloned the repository
 
 `pip install package`
 
-`pip freeze > ../requirements.txt`
+`pip freeze > requirements.txt`
+
+`$ deactivate`
 
 Commit the requirements.txt file 
 
