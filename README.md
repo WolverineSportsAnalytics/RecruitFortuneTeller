@@ -14,6 +14,8 @@ on our system
 #### Create Virtual Env and Enter it 
 Go to your directory where you cloned the repository 
 
+`$ cd RecruitFortuneTeller`
+
 `$ virtualenv ENV`
 
 `$ source env/bin/activate`
@@ -21,7 +23,7 @@ Go to your directory where you cloned the repository
 #### Install the requirements
     - Make sure in home directory 
 
-`pip install requirements.txt`
+`pip install -r requirements.txt`
 
 #### Deactivate the Virtual ENV
 `$ deactivate`

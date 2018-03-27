@@ -8,6 +8,19 @@ consumer_secret = "OofP95eIwpKxC4BV6NI24HiTPS1ScwsRxYtyV3y1dwFBUBpWfA"
 API_ENDPOINT = 'https://api.twitter.com'
 API_VERSION = '1.1'
 
+["Michigan", "goblue"]
+
+def calcRetweets(data):
+    retweets = data['retweet_count']
+    return retweets
+
+def calcFavorites(data):
+
+    pass
+
+def calcMichiganMentions(data):
+    pass
+
 def standardRequest(url, access_token):
     request = Request(url)
     request.add_header('Authorization', 'Bearer %s' % access_token)
@@ -48,8 +61,14 @@ def main():
         url_timeline += key + "=" + value + "&"
 
     url_timeline = url_timeline[:-1]
-    timeLineData = standardRequest("https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=i_williams11&count=200", token)
 
+    timeLineData = standardRequest("https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=i_williams11&count=3200&include_rts=false", token)
+
+    # create metric functions
+    # currate tweets
+
+    for data in timeLineData:
+        calcRetweets(data)
 
 
 if __name__ == '__main__':
