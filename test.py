@@ -1,5 +1,7 @@
 import base64
 import json
+import globals
+from urllib import urlencode
 from urllib2 import urlopen, Request
 
 consumer_key = "hDhDiDyA7J5g36Qw9eFPnEnlS"
@@ -49,27 +51,47 @@ def authorize(url, consumer_key, consumer_secret):
 
     return access_token
 
+
+def batcher(token, recruits):
+    base_url = "https://api.twitter.com/1.1/statuses/user_timeline.json"
+    recruitsListTweets = {}
+    for recruit in recruits:
+        # find last tweet since national signing day
+        params = {"screen_name": recruit, "count": str(200), "include_rts": 1, "max_id": str(globals.nsd2016maxID)}
+        timeline_data = []
+
+        while True:
+            url = (base_url + "?" + urlencode(params))
+
+            try:
+                tweet_data = standardRequest(url, token)
+            except:
+                break
+
+            if not tweet_data:
+                break
+
+            timeline_data.append(tweet_data)
+
+            last_element = tweet_data[-1]
+            amount_tweets = len(tweet_data)
+
+            newMaxId = last_element['id']
+            if (last_element['id'] < globals.nsd2016lowerID) or amount_tweets < params["count"]:
+                break
+
+            params["max_id"] = str(newMaxId)
+
+        recruitsListTweets[params["screen_name"]] = timeline_data
+
+    return recruitsListTweets
+
 def main():
     REQUEST_TOKEN_URL = '%s/oauth2/token' % (API_ENDPOINT)
     token = authorize(REQUEST_TOKEN_URL, consumer_key, consumer_secret)
 
-    TIMELINE_URL = "%s/statuses/user_timeline.json?screen_name=i_williams11&count=200" % (API_ENDPOINT)
-    timelineDic = {"screen_name" : "i_williams11", "count" : "200", "exclude_replies" : "true", "include_rts" : "false"}
-
-    url_timeline = TIMELINE_URL
-    for key, value in timelineDic.iteritems():
-        url_timeline += key + "=" + value + "&"
-
-    url_timeline = url_timeline[:-1]
-
-    timeLineData = standardRequest("https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=i_williams11&count=3200&include_rts=false", token)
-
-    # create metric functions
-    # currate tweets
-
-    for data in timeLineData:
-        calcRetweets(data)
-
+    recruitsListTweets = batcher(token, globals.recruits2016)
+    print recruitsListTweets
 
 if __name__ == '__main__':
     main()
