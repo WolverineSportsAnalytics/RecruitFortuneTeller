@@ -71,6 +71,8 @@ def calcMichiganMentions(data):
             screenNameTwitterData['screen_name'] = screenName
             screenNameTwitterData['tweet_metrics'] = {}
 
+            print "Analyzing Tweets for: " + screenName
+
             for tweet in tweets:
                 if "retweeted_status" in tweet:
                     retweeted = True
@@ -97,8 +99,10 @@ def calcMichiganMentions(data):
                 if isMichigan(words):
                     michiganTweets += 1
                     if retweeted:
+                        print "RT: " + str(words)
                         nativeMichiganRetweets += 1
                     else:
+                        print "Native Tweet: " + str(words)
                         nativeMichiganTweets += 1
                         michFavorites += calcFavorites(tweet)
                         michRetweets += calcRetweets(tweet)
