@@ -1,2 +1,7 @@
 httplib2==0.10.3
+numpy==1.14.2
 oauth2==1.9.0.post1
+pandas==0.22.0
+python-dateutil==2.7.2
+pytz==2018.4
+six==1.11.0

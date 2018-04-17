@@ -3,6 +3,7 @@ import json
 import globals
 from urllib import urlencode
 from urllib2 import urlopen, Request
+import pandas as pd
 
 consumer_key = "hDhDiDyA7J5g36Qw9eFPnEnlS"
 consumer_secret = "OofP95eIwpKxC4BV6NI24HiTPS1ScwsRxYtyV3y1dwFBUBpWfA"
@@ -179,7 +180,7 @@ def toPandas(screen_name_to_twitter_data):
         twitterObjects.append(tweet)
 
     # https://stackoverflow.com/questions/34997174/how-to-convert-list-of-model-objects-to-pandas-dataframe
-    twitter_panda = pandas.DataFrame.from_records([t.to_dict() for t in twitterObjects])
+    twitter_panda = pd.DataFrame.from_records([t.to_dict() for t in twitterObjects])
 
     return twitter_panda
 
