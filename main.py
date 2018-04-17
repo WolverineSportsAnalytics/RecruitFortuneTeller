@@ -13,7 +13,7 @@ API_VERSION = '1.1'
 hashTags = ["mich",
              "uofm",
              "goblue",
-             "blue",
+             "go blue",
              "umich",
              "wolv",
              "wolverines",
@@ -37,6 +37,25 @@ hashTags = ["mich",
 negativeWords = ["state", "st.", "st", "central", "eastern", "gogreen", "green", "eastern", "western", "central", "emu",
                  "swoop", "getup", "wmu", "bronco", "eagle", "rowtheboat", "cmu", "chipp", "fireup", "northern", "tech"]
 
+# container class for twitter information
+class Twitter:
+    def __init__(self, screenName, michFavToAllTweetRatio, michTweetToAllTweetRatio, michOverallTweetRatio,
+                 michNativeRTweetRatio, michNativeTweetRatio):
+        self.screenName = screenName
+        self.michFavToAllTweetRatio = michFavToAllTweetRatio
+        self.michTweetToAllTweetRatio = michTweetToAllTweetRatio
+        self.michOverallTweetRatio = michOverallTweetRatio
+        self.michNativeRTweetRatio = michNativeRTweetRatio
+        self.michNativeTweetRatio = michNativeTweetRatio
+
+    def to_dict(self):
+        return {
+            'screenName': self.screenName,
+            'michFavToAllTweetRatio': self.michFavToAllTweetRatio,
+            'michOverallTweetRatio': self.michOverallTweetRatio,
+            'michNativeRTweetRatio': self.michNativeRTweetRatio,
+            'michNativeTweetRatio': self.michNativeTweetRatio
+        }
 
 def calcRetweets(tweet):
     retweets = tweet['retweet_count']
@@ -51,7 +70,6 @@ def calcFavorites(tweet):
 def calcMichiganMentions(data):
     # check each word in data and if it matches
     twitterData = []
-
     for screenName, tweetsObject in data.iteritems():
         for tweets in tweetsObject:
             numTweetsAnalyzing = len(tweets)
@@ -144,6 +162,27 @@ def isMichigan(word_list):
 
     return 0  # else return 0
 
+def toPandas(screen_name_to_twitter_data):
+    twitterObjects = []
+
+    for key, value in screen_name_to_twitter_data.iteritems():
+        screenName = key
+
+        twitter_data = screen_name_to_twitter_data[key]
+        michFavToAllTweetRatio = twitter_data['michFavToAllTweetRatio']
+        michTweetToAllTweetRatio = twitter_data['michTweetToAllTweetRatio']
+        michOverallTweetRatio = twitter_data['michOverallTweetRatio']
+        michNativeRTweetRatio = twitter_data['michNativeRTweetRatio']
+        michNativeTweetRatio = twitter_data['michNativeTweetRatio']
+        tweet = Twitter(screenName, michFavToAllTweetRatio, michTweetToAllTweetRatio, michOverallTweetRatio,
+                        michNativeRTweetRatio, michNativeTweetRatio)
+        twitterObjects.append(tweet)
+
+    # https://stackoverflow.com/questions/34997174/how-to-convert-list-of-model-objects-to-pandas-dataframe
+    twitter_panda = pandas.DataFrame.from_records([t.to_dict() for t in twitterObjects])
+
+    return twitter_panda
+
 
 def standardRequest(url, access_token):
     request = Request(url)
@@ -174,10 +213,17 @@ def authorize(url, consumer_key, consumer_secret):
 
     return access_token
 
+def followers(token):
+    baseURL = "https://api.twitter.com/1.1/friends/ids.json"
+    pass
 
 def batcher(token, recruits):
     base_url = "https://api.twitter.com/1.1/statuses/user_timeline.json"
     recruitsListTweets = {}
+
+    recruitsTwitterData = []
+    recruitsNonTwitterData = []
+
     for recruit in recruits:
         # find last tweet since national signing day
         params = {"screen_name": recruit, "count": str(200), "include_rts": 1, "max_id": str(globals.nsd2016maxID)}
@@ -205,16 +251,34 @@ def batcher(token, recruits):
 
             params["max_id"] = str(newMaxId)
 
+        # check to see if any tweet data on them
+        if not timeline_data:
+            recruitsNonTwitterData.append(params["screen_name"])
+        else:
+            recruitsTwitterData.append(params["screen_name"])
+
         recruitsListTweets[params["screen_name"]] = timeline_data
 
-    return recruitsListTweets
+    return recruitsListTweets, recruitsNonTwitterData, recruitsTwitterData
 
+def toPandas(screen_name_to_twitter_data):
+    pass
 
 def main():
     REQUEST_TOKEN_URL = '%s/oauth2/token' % (API_ENDPOINT)
     token = authorize(REQUEST_TOKEN_URL, consumer_key, consumer_secret)
 
-    recruitsListTweets = batcher(token, globals.recruits2016)
+    recruitsListTweets, recruitsNonTwitterData, recruitsTwitterData = batcher(token, globals.recruits2016)
+
+    print "Recruits without Twitter Data: "
+    for name in recruitsNonTwitterData:
+        print str(name)
+
+    print "\n"
+
+    print "Recruits with Twitter Data: "
+    for name in recruitsTwitterData:
+        print str(name)
 
     twitterData = calcMichiganMentions(recruitsListTweets)
 
