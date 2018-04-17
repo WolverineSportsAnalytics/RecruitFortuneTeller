@@ -4,6 +4,7 @@ import globals
 from urllib import urlencode
 from urllib2 import urlopen, Request
 import pandas as pd
+import csv
 
 consumer_key = "hDhDiDyA7J5g36Qw9eFPnEnlS"
 consumer_secret = "OofP95eIwpKxC4BV6NI24HiTPS1ScwsRxYtyV3y1dwFBUBpWfA"
@@ -53,6 +54,7 @@ class Twitter:
         return {
             'screenName': self.screenName,
             'michFavToAllTweetRatio': self.michFavToAllTweetRatio,
+            'michTweetToAllTweetRatio': self.michTweetToAllTweetRatio,
             'michOverallTweetRatio': self.michOverallTweetRatio,
             'michNativeRTweetRatio': self.michNativeRTweetRatio,
             'michNativeTweetRatio': self.michNativeTweetRatio
@@ -148,6 +150,8 @@ def calcMichiganMentions(data):
 
             twitterData.append(screenNameTwitterData)
 
+    return twitterData
+
 def isMichigan(word_list):
     tagString = " ".join(
         word_list)  # join into one string
@@ -166,10 +170,10 @@ def isMichigan(word_list):
 def toPandas(screen_name_to_twitter_data):
     twitterObjects = []
 
-    for key, value in screen_name_to_twitter_data.iteritems():
-        screenName = key
+    for tweet_summary in screen_name_to_twitter_data:
+        screenName = tweet_summary['screen_name']
 
-        twitter_data = screen_name_to_twitter_data[key]
+        twitter_data = tweet_summary['tweet_metrics']
         michFavToAllTweetRatio = twitter_data['michFavToAllTweetRatio']
         michTweetToAllTweetRatio = twitter_data['michTweetToAllTweetRatio']
         michOverallTweetRatio = twitter_data['michOverallTweetRatio']
@@ -262,8 +266,35 @@ def batcher(token, recruits):
 
     return recruitsListTweets, recruitsNonTwitterData, recruitsTwitterData
 
-def toPandas(screen_name_to_twitter_data):
-    pass
+
+def read_in_csv(recruitsFile):
+    recruitsFile = "Twitter_Model_Data_2016.csv"
+
+    data = []
+    with open(recruitsFile, 'rb') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',', quotechar='|')
+        i = 0
+        for row in reader:
+            if i == 0:
+                i = 1
+                pass
+            else:
+                sub = []
+                sub.append(row[0])
+                sub.append(row[1])
+                sub.append(row[4])
+                sub.append(row[5])
+                sub.append(row[6])
+                sub.append(row[7])
+                sub.append(row[8])
+                sub.append(row[9])
+                sub.append(row[10])
+                data.append(sub)
+
+    headers = ['Name', 'Twitter Handle', 'Miles from AA', 'First Offer', 'Last Offer', 'Official Visit',
+               'Last Official Visit', 'Attended Michigan', 'In-State']
+    df = pd.DataFrame(data, columns=headers)
+    return df
 
 def main():
     REQUEST_TOKEN_URL = '%s/oauth2/token' % (API_ENDPOINT)
@@ -283,6 +314,19 @@ def main():
 
     twitterData = calcMichiganMentions(recruitsListTweets)
 
+    df_twitter = toPandas(twitterData)
+    df_twitter.head()
+
+    df_signing = read_in_csv('Twitter_Model_Data_2016.csv')
+    df_signing.head()
+
+    df_features = pd.merge(left=df_signing[['Name', 'Twitter Handle', 'Miles from AA', 'First Offer', 'Last Offer', 'Official Visit', 'Last Official Visit', 'Attended Michigan', 'In-State']],
+                           right=df_twitter[['screenName', 'michFavToAllTweetRatio', 'michTweetToAllTweetRatio', 'michOverallTweetRatio', 'michNativeRTweetRatio', 'michNativeTweetRatio']],
+                           how='inner', left_on='Twitter Handle', right_on='screenName')
+
+    print(str(df_features.head()))
+
+    '''
     sentence1 = "State is better than Michigan. I am not going to play at #umich."
     sentence2 = "I am going to play at #Umich."
     sentence3 = "#michiganst over #Umich."
@@ -292,6 +336,7 @@ def main():
     sentence7 = "I am not going to state. #Umich"
     sentence8 = "Hail to the victors"
     sentence9 = "#Hail #Blue #Go #theteam #state"
+    '''
 
 
 if __name__ == '__main__':
