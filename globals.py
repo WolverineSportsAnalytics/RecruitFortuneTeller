@@ -215,8 +215,15 @@ nsd2016d = 3
 nsd2016m = 2
 nsd2016y = 2016
 
+nsd2017d = 1
+nsd2017m = 2
+nsd2017y = 2017
+
 nsd2016maxID = 694903913024262144
 nsd2016lowerID = 287045122124824576
+
+nsd2017maxID = 826830524341698560
+nsd2017lowerID = 287045122124824576
 
 recruits2017 = ["JJPhillips15",
 "ohthatsNajee22",

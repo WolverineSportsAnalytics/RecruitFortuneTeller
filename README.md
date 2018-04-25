@@ -63,3 +63,11 @@ All test.py does right now is that it gets an access code via OAuth2 protocol an
 tweet. Run in pycharm to see what the data object returns 
 
 `python test.py`
+
+### Future things
+
+Followers
+
+User Mentions
+
+Get All Tweets (Only Get 1 Batch Due to Count Issue/Deleted Tweets)

@@ -1,0 +1,10 @@
+
+sentence1 = "State is better than Michigan. I am not going to play at #umich."
+sentence2 = "I am going to play at #Umich."
+sentence3 = "#michiganst over #Umich."
+sentence4 = "Go Blue. I am commiting to Central Michigan"
+sentence5 = "Harbaugh sucks. Go green"
+sentence6 = "#HailToTheVictors. Go green"
+sentence7 = "I am not going to state. #Umich"
+sentence8 = "Hail to the victors"
+sentence9 = "#Hail #Blue #Go #theteam #state"

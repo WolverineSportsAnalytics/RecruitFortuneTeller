@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import base64
 import json
 import globals
@@ -34,9 +36,10 @@ hashTags = ["mich",
              "theteam",
              "thosewhostay",
              "hailtothevictors",
-             "303D FE0F"]
+             "U+FE0F",
+            "U+303D"]
 
-negativeWords = ["state", "st.", "st", "central", "eastern", "gogreen", "green", "eastern", "western", "central", "emu",
+negativeWords = ["state", " st.", "central", "eastern", "gogreen", "green", "eastern", "western", "central", "emu",
                  "swoop", "getup", "wmu", "bronco", "eagle", "rowtheboat", "cmu", "chipp", "fireup", "northern", "tech"]
 
 # container class for twitter information
@@ -69,6 +72,19 @@ def calcFavorites(tweet):
     favorites = tweet['favorite_count']
     return favorites
 
+def isMichigan(word_list):
+    for tagString in word_list:
+        tagString.lower()
+        for tag in negativeWords:
+            if tagString.find(tag) != -1:
+                return 0
+
+        for tag in hashTags:  # for word in hashTags
+            if tagString.find(
+                    tag) != -1:  # if word is in tagString
+                return 1  # return 1
+
+        return 0  # else return 0
 
 def calcMichiganMentions(data):
     # check each word in data and if it matches
@@ -92,7 +108,7 @@ def calcMichiganMentions(data):
             screenNameTwitterData['screen_name'] = screenName
             screenNameTwitterData['tweet_metrics'] = {}
 
-            print "Analyzing Tweets for: " + screenName
+            print("Analyzing Tweets for: " + screenName)
 
             for tweet in tweets:
                 if "retweeted_status" in tweet:
@@ -115,57 +131,50 @@ def calcMichiganMentions(data):
                 words = tweetText.split(" ")
                 hashtags = tweet['entities']['hashtags']
                 for taghash in hashtags:
-                    words.append(str(taghash['text']))
+                    words.append((taghash['text']).encode('utf-8'))
 
                 if isMichigan(words):
                     michiganTweets += 1
                     if retweeted:
-                        print "RT: " + str(words)
+                        print("RT: ", end='')
+                        for word in words:
+                            print(word.encode('utf-8' + " "), end='')
+                        print("")
                         nativeMichiganRetweets += 1
                     else:
-                        print "Native Tweet: " + str(words)
+                        print("Native Tweet: ", end='')
+                        for word in words:
+                            print(word.encode('utf-8') + " ", end='')
+                        print("")
                         nativeMichiganTweets += 1
-                        michFavorites += calcFavorites(tweet)
-                        michRetweets += calcRetweets(tweet)
+                        favoritesMichFunc = calcFavorites(tweet)
+                        retweetsMichFunc = calcRetweets(tweet)
+                        michFavorites += favoritesMichFunc
+                        michRetweets += retweetsMichFunc
 
-            michRetweetsRatio = 0 if nativeMichiganTweets == 0 else float(michRetweets / nativeMichiganTweets)
-            michFavoritesRatio = 0 if nativeMichiganTweets == 0 else float(michFavorites / nativeMichiganTweets)
+                michRetweetsRatio = 0 if nativeMichiganTweets == 0 else (float(michRetweets) / float(nativeMichiganTweets))
+                michFavoritesRatio = 0 if nativeMichiganTweets == 0 else (float(michFavorites) / float(nativeMichiganTweets))
 
-            tweetRatio = - 0 if nativeTweets == 0 else float(totRetweets / nativeTweets)
-            favoriteRatio = 0 if nativeTweets == 0 else float(totFavorites / nativeTweets)
+                tweetRatio = 0 if nativeTweets == 0 else (float(totRetweets) / float(nativeTweets))
+                favoriteRatio = 0 if nativeTweets == 0 else (float(totFavorites) / float(nativeTweets))
 
-            michFavToAllTweetRatio = 0 if favoriteRatio == 0 else float(michFavoritesRatio / favoriteRatio)
-            michTweetToAllTweetRatio = 0 if tweetRatio == 0 else float(michRetweetsRatio / tweetRatio)
+                michFavToAllTweetRatio = 0 if favoriteRatio == 0 else (float(michFavoritesRatio) / float(favoriteRatio))
+                michTweetToAllTweetRatio = 0 if tweetRatio == 0 else (float(michRetweetsRatio) / float(tweetRatio))
 
-            michOverallTweetRatio = 0 if numTweetsAnalyzing == 0 else float(michiganTweets / numTweetsAnalyzing)
-            michNativeRTweetRatio = 0 if nativeRetweets == 0 else float(nativeMichiganRetweets / nativeRetweets)
-            michNativeTweetRatio = 0 if nativeMichiganTweets == 0 else float(nativeMichiganTweets / nativeMichiganTweets)
+                michOverallTweetRatio = 0 if numTweetsAnalyzing == 0 else (float(michiganTweets) / float(numTweetsAnalyzing))
+                michNativeRTweetRatio = 0 if nativeRetweets == 0 else (float(nativeMichiganRetweets) / float(nativeRetweets))
+                michNativeTweetRatio = 0 if nativeTweets == 0 else (float(nativeMichiganTweets) / float(nativeTweets))
 
-            screenNameTwitterData['tweet_metrics']['michFavToAllTweetRatio'] = michFavToAllTweetRatio
-            screenNameTwitterData['tweet_metrics']['michTweetToAllTweetRatio'] = michTweetToAllTweetRatio
+                screenNameTwitterData['tweet_metrics']['michFavToAllTweetRatio'] = michFavToAllTweetRatio
+                screenNameTwitterData['tweet_metrics']['michTweetToAllTweetRatio'] = michTweetToAllTweetRatio
 
-            screenNameTwitterData['tweet_metrics']['michOverallTweetRatio'] = michOverallTweetRatio
-            screenNameTwitterData['tweet_metrics']['michNativeRTweetRatio'] = michNativeRTweetRatio
-            screenNameTwitterData['tweet_metrics']['michNativeTweetRatio'] = michNativeTweetRatio
+                screenNameTwitterData['tweet_metrics']['michOverallTweetRatio'] = michOverallTweetRatio
+                screenNameTwitterData['tweet_metrics']['michNativeRTweetRatio'] = michNativeRTweetRatio
+                screenNameTwitterData['tweet_metrics']['michNativeTweetRatio'] = michNativeTweetRatio
 
-            twitterData.append(screenNameTwitterData)
+                twitterData.append(screenNameTwitterData)
 
     return twitterData
-
-def isMichigan(word_list):
-    tagString = " ".join(
-        word_list)  # join into one string
-    tagString = tagString.lower()
-    for tag in negativeWords:
-        if tagString.find(tag) != -1:
-            return 0
-
-    for tag in hashTags:  # for word in hashTags
-        if tagString.find(
-                tag) != -1:  # if word is in tagString
-            return 1  # return 1
-
-    return 0  # else return 0
 
 def toPandas(screen_name_to_twitter_data):
     twitterObjects = []
@@ -222,16 +231,26 @@ def followers(token):
     baseURL = "https://api.twitter.com/1.1/friends/ids.json"
     pass
 
-def batcher(token, recruits):
+def batcher(token, recruits, year):
     base_url = "https://api.twitter.com/1.1/statuses/user_timeline.json"
     recruitsListTweets = {}
 
     recruitsTwitterData = []
     recruitsNonTwitterData = []
 
+    maxID = 0
+    lowerID = 0
+
+    if year == 2016:
+        maxID = globals.nsd2016maxID
+        lowerID = globals.nsd2016lowerID
+    if year == 2017:
+        maxID = globals.nsd2017maxID
+        lowerID = globals.nsd2017lowerID
+
     for recruit in recruits:
         # find last tweet since national signing day
-        params = {"screen_name": recruit, "count": str(200), "include_rts": 1, "max_id": str(globals.nsd2016maxID)}
+        params = {"screen_name": recruit, "count": str(200), "include_rts": 1, "max_id": str(maxID), "since_id": str(lowerID), ""}
         timeline_data = []
 
         while True:
@@ -251,7 +270,7 @@ def batcher(token, recruits):
             amount_tweets = len(tweet_data)
 
             newMaxId = last_element['id']
-            if (last_element['id'] < globals.nsd2016lowerID) or amount_tweets < params["count"]:
+            if (last_element['id'] < lowerID):
                 break
 
             params["max_id"] = str(newMaxId)
@@ -261,8 +280,7 @@ def batcher(token, recruits):
             recruitsNonTwitterData.append(params["screen_name"])
         else:
             recruitsTwitterData.append(params["screen_name"])
-
-        recruitsListTweets[params["screen_name"]] = timeline_data
+            recruitsListTweets[params["screen_name"]] = timeline_data
 
     return recruitsListTweets, recruitsNonTwitterData, recruitsTwitterData
 
@@ -296,28 +314,37 @@ def read_in_csv(recruitsFile):
     df = pd.DataFrame(data, columns=headers)
     return df
 
-def main():
+def main(year):
     REQUEST_TOKEN_URL = '%s/oauth2/token' % (API_ENDPOINT)
     token = authorize(REQUEST_TOKEN_URL, consumer_key, consumer_secret)
 
-    recruitsListTweets, recruitsNonTwitterData, recruitsTwitterData = batcher(token, globals.recruits2016)
+    analyzeScreenNames = []
 
-    print "Recruits without Twitter Data: "
+    if year == 2016:
+        analyzeScreenNames = globals.recruits2016
+    if year == 2017:
+        analyzeScreenNames = globals.recruits2017
+
+    recruitsListTweets, recruitsNonTwitterData, recruitsTwitterData = batcher(token, analyzeScreenNames, year)
+
+    print("Recruits without Twitter Data: ")
     for name in recruitsNonTwitterData:
-        print str(name)
+        print(str(name))
 
-    print "\n"
+    print("\n")
 
-    print "Recruits with Twitter Data: "
+    print("Recruits with Twitter Data: ")
     for name in recruitsTwitterData:
-        print str(name)
+        print(str(name))
 
     twitterData = calcMichiganMentions(recruitsListTweets)
 
     df_twitter = toPandas(twitterData)
     df_twitter.head()
 
-    df_signing = read_in_csv('Twitter_Model_Data_2016.csv')
+    twitter_csv_data_filename = "Twitter_Model_Data_" + str(year) + ".csv"
+
+    df_signing = read_in_csv(twitter_csv_data_filename)
     df_signing.head()
 
     df_features = pd.merge(left=df_signing[['Name', 'Twitter Handle', 'Miles from AA', 'First Offer', 'Last Offer', 'Official Visit', 'Last Official Visit', 'Attended Michigan', 'In-State']],
@@ -326,18 +353,7 @@ def main():
 
     print(str(df_features.head()))
 
-    '''
-    sentence1 = "State is better than Michigan. I am not going to play at #umich."
-    sentence2 = "I am going to play at #Umich."
-    sentence3 = "#michiganst over #Umich."
-    sentence4 = "Go Blue. I am commiting to Central Michigan"
-    sentence5 = "Harbaugh sucks. Go green"
-    sentence6 = "#HailToTheVictors. Go green"
-    sentence7 = "I am not going to state. #Umich"
-    sentence8 = "Hail to the victors"
-    sentence9 = "#Hail #Blue #Go #theteam #state"
-    '''
-
+    return df_features
 
 if __name__ == '__main__':
-    main()
+    main(2016)
