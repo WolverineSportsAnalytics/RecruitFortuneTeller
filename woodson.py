@@ -1,160 +1,46 @@
 from __future__ import print_function
 
 # system libraries
-import os
-import sys
-import json
-import re
-import pickle
 import main
 
 # machine learning libraries
-from sklearn.feature_selection import SelectFromModel
-from sklearn.metrics import accuracy_score
 from sklearn.model_selection import cross_val_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import LinearSVC
-from sklearn.linear_model import RidgeClassifier
-from sklearn.linear_model import SGDClassifier
-from sklearn.linear_model import Perceptron
-from sklearn.linear_model import PassiveAggressiveClassifier
-from sklearn.naive_bayes import BernoulliNB, MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neighbors import NearestCentroid
-from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier, plot_importance
 import xgboost as xgb
 from sklearn import metrics
 from sklearn.model_selection import GridSearchCV
 
 # helper libraries
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from time import time
+import seaborn as sn
 
 target = 'Attended Michigan'
 
-def XGModelFit(XGBModel, df_reviews, features, plot, useTrainCV=True, cv_folds=7, early_stopping_rounds=25):
+def XGModelFit(XGBModel, df_twitter, features, plot, useTrainCV=True, cv_folds=7, early_stopping_rounds=25):
     if useTrainCV:
         xgb_param = XGBModel.get_xgb_params()
-        xgtrain = xgb.DMatrix(df_reviews[features].values, label=df_reviews[target].values)
+        xgtrain = xgb.DMatrix(df_twitter[features].values, label=df_twitter[target].values)
         cvresult = xgb.cv(xgb_param, xgtrain, num_boost_round=XGBModel.get_params()['n_estimators'], nfold=cv_folds,
                           metrics='auc', early_stopping_rounds=early_stopping_rounds, verbose_eval=True)
         XGBModel.set_params(n_estimators=cvresult.shape[0])
 
-    XGBModel.fit(df_reviews[features], df_reviews[target], eval_metric='auc')
+    XGBModel.fit(df_twitter[features], df_twitter[target], eval_metric='auc')
 
-    df_review_predictions = XGBModel.predict(df_reviews[features])
-    df_review_predprob = XGBModel.predict_proba(df_reviews[features])[:, 1]
+    df_review_predictions = XGBModel.predict(df_twitter[features])
+    df_review_predprob = XGBModel.predict_proba(df_twitter[features])[:, 1]
 
     # Print model report:
     print("\nModel Report")
-    print("Train AUC Score: %.4g" % metrics.roc_auc_score(df_reviews[target], df_review_predprob))
-    print("Accuracy : %.4g" % metrics.accuracy_score(df_reviews[target].values, df_review_predictions))
+    print("Train AUC Score: %.4g" % metrics.roc_auc_score(df_twitter[target], df_review_predprob))
+    print("Accuracy : %.4g" % metrics.accuracy_score(df_twitter[target].values, df_review_predictions))
 
     if plot:
-        plot_importance(XGBModel, importance_type='gain')
+        xgb.plot_importance(XGBModel, importance_type='gain')
         plt.show()
-
-# Benchmark classifiers
-def benchmark(clf, X_train, y_train, X_test, y_test):
-    print('_' * 80)
-    print("Training: ")
-    print(clf)
-    t0 = time()
-    clf.fit(X_train, y_train)
-    train_time = time() - t0
-    print("train time: %0.3fs" % train_time)
-
-    t0 = time()
-    pred = clf.predict(X_test)
-    test_time = time() - t0
-    print("test time:  %0.3fs" % test_time)
-
-    score = accuracy_score(y_test, pred)
-    print("accuracy:   %0.3f" % score)
-
-    print()
-    clf_descr = str(clf).split('(')[0]
-    return clf_descr, score, train_time, test_time
-
-def model_pipeline(X_train, y_train, X_test, y_test):
-    results = []
-    for clf, name in (
-            (RidgeClassifier(tol=1e-2, solver="lsqr"), "Ridge Classifier"),
-            (Perceptron(n_iter=50), "Perceptron"),
-            (PassiveAggressiveClassifier(n_iter=50), "Passive-Aggressive"),
-            (KNeighborsClassifier(n_neighbors=10), "kNN"),
-            (RandomForestClassifier(n_estimators=100), "Random forest")):
-        print('=' * 80)
-        print(name)
-        results.append(benchmark(clf, X_train, y_train, X_test, y_test))
-
-    for penalty in ["l2", "l1"]:
-        print('=' * 80)
-        print("%s penalty" % penalty.upper())
-        # Train Liblinear model
-        results.append(benchmark(LinearSVC(penalty=penalty, dual=False,
-                                           tol=1e-3), X_train, y_train, X_test, y_test))
-
-        # Train SGD model
-        results.append(benchmark(SGDClassifier(alpha=.0001, n_iter=50,
-                                               penalty=penalty), X_train, y_train, X_test, y_test))
-
-    # Train SGD with Elastic Net penalty
-    print('=' * 80)
-    print("Elastic-Net penalty")
-    results.append(benchmark(SGDClassifier(alpha=.0001, n_iter=50,
-                                           penalty="elasticnet"), X_train, y_train, X_test, y_test))
-
-    # Train NearestCentroid without threshold
-    print('=' * 80)
-    print("NearestCentroid (aka Rocchio classifier)")
-    results.append(benchmark(NearestCentroid(), X_train, y_train, X_test, y_test))
-
-    # Train sparse Naive Bayes classifiers
-    print('=' * 80)
-    print("Naive Bayes")
-    results.append(benchmark(MultinomialNB(alpha=.01), X_train, y_train, X_test, y_test))
-    results.append(benchmark(BernoulliNB(alpha=.01), X_train, y_train, X_test, y_test))
-
-    print('=' * 80)
-    print("LinearSVC with L1-based feature selection")
-    # The smaller C, the stronger the regularization.
-    # The more regularization, the more sparsity.
-    results.append(benchmark(Pipeline([
-      ('feature_selection', SelectFromModel(LinearSVC(penalty="l1", dual=False,
-                                                      tol=1e-3))),
-      ('classification', LinearSVC(penalty="l2"))]), X_train, y_train, X_test, y_test))
-
-    # make some plots
-
-    indices = np.arange(len(results))
-
-    results = [[x[i] for x in results] for i in range(4)]
-
-    clf_names, score, training_time, test_time = results
-    training_time = np.array(training_time) / np.max(training_time)
-    test_time = np.array(test_time) / np.max(test_time)
-
-    plt.figure(figsize=(12, 8))
-    plt.title("Score")
-    plt.barh(indices, score, .2, label="score", color='navy')
-    plt.barh(indices + .3, training_time, .2, label="training time",
-             color='c')
-    plt.barh(indices + .6, test_time, .2, label="test time", color='darkorange')
-    plt.yticks(())
-    plt.legend(loc='best')
-    plt.subplots_adjust(left=.25)
-    plt.subplots_adjust(top=.95)
-    plt.subplots_adjust(bottom=.05)
-
-    for i, c in zip(indices, clf_names):
-        plt.text(-.3, i, c)
-
-    plt.show()
 
 def model_generation():
     # test split
@@ -174,6 +60,8 @@ def model_generation():
     df_twitter_2016.insert(0, 'Intercept', 1, allow_duplicates=True)
     df_twitter_2017.insert(0, 'Intercept', 1, allow_duplicates=True)
 
+    df_twitter_tot = pd.concat([df_twitter_2016, df_twitter_2017])
+
     X_train = df_twitter_2016[features].values
     y_train = df_twitter_2016[target].values
 
@@ -186,6 +74,9 @@ def model_generation():
 
     X = df_twitter[features].values
     y = df_twitter[target].values
+
+    # Run Through Prelim Model Pipeline
+    # model_pipeline(X_train, y_train, X_test, y_test)
 
     '''
     Data Exploration
@@ -221,34 +112,26 @@ def model_generation():
 
         print("Score for training set")
         print(str(logModel.score(X_train, y_train)))
-        #print("Null score for training set")
-        #print(str(y_train.mean()))
 
-        '''
-        print("Coeficents for training set: ")
-        df_coef = pd.DataFrame(data=logModel.coef_, columns=features, dtype=None, copy=False)
-        with pd.option_context('display.max_rows', None, 'display.max_columns', len(features)):
-            f = open('model_data_analysis_log.txt', 'w')
-            f.write(df_coef)
-        '''
+        log_label = "Logisitc Regression " + pen + " Pred Label"
 
-        print("Predicted Labels: ")
         predicted = logModel.predict(X_test)
-        print(predicted)
+        df_twitter_2017[log_label] = predicted
 
-        print("Predicted probabilities for each label: ")
         probs = logModel.predict_proba(X_test)
-        print(probs)
+        log_label_prob_no = "Logisitc Regression " + pen + " No Prob"
+        log_label_prob_yes = "Logisitc Regression " + pen + " Yes Prob"
+        df_twitter_2017[log_label_prob_no] = probs[:,0]
+        df_twitter_2017[log_label_prob_yes] = probs[:,1]
 
         print("Print accuracy score: ")
         print(metrics.accuracy_score(y_test, predicted))
-        '''
-        print("Print roc_auc_score: ")
-        print(metrics.roc_auc_score(y_test, probs[:, 1]))
-        '''
 
-        print("Confusion matrix: ")
-        print(metrics.confusion_matrix(y_test, predicted))
+        df_cm = pd.DataFrame(metrics.confusion_matrix(y_test, predicted), index=[i for i in ["Other", "Michigan"]],
+                             columns=[i for i in ["Other", "Michigan"]])
+        plt.figure(figsize=(10, 7))
+        sn.heatmap(df_cm, annot=True)
+
         print("Classification report: ")
         print(metrics.classification_report(y_test, predicted))
 
@@ -261,34 +144,72 @@ def model_generation():
             print(scores)
             print(scores.mean())
 
+    # Naive Bayes
+    print ("K-Neighbors Classifier: ")
+    knn = KNeighborsClassifier(n_neighbors=7)
+
+    # TODO: cross validation
+    if cross:
+        params = {'n_neighbors': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]}
+        knn = GridSearchCV(knn, params, scoring='neg_log_loss', refit=True, cv=7)
+
+        knn.fit(X_train, y_train)
+        bestParams = knn.best_params_
+
+        knn = KNeighborsClassifier(n_neighbors=bestParams['n_neighbors'])
+
+    knn.fit(X_train, y_train)
+
+    print("Score for training set")
+    print(str(knn.score(X_train, y_train)))
+
+    knn_pred_label = "KNN Predictions"
+
+    predicted = knn.predict(X_test)
+    df_twitter_2017[knn_pred_label] = predicted
+
+    probs = knn.predict_proba(X_test)
+    knn_prob_no = "KNN Prob No"
+    knn_prob_yes = "KNN Prob Yes"
+    df_twitter_2017[knn_prob_no] = probs[:, 0]
+    df_twitter_2017[knn_prob_yes] = probs[:, 1]
+
+    print("Print accuracy score: ")
+    print(metrics.accuracy_score(y_test, predicted))
+
+    df_cm = pd.DataFrame(metrics.confusion_matrix(y_test, predicted), index=[i for i in ["Other", "Michigan"]],
+                         columns=[i for i in ["Other", "Michigan"]])
+    plt.figure(figsize=(10, 7))
+    sn.heatmap(df_cm, annot=True)
+
+    print("Classification report: ")
+    print(metrics.classification_report(y_test, predicted))
+
     # Random Forest
     print ("Random Forest: " )
     rf = RandomForestClassifier(n_estimators=500, oob_score=True) #oob_score makes cv unnecessary for paramater tuning
     rf.fit(X_train, y_train)
 
-    '''
-    print("Feature Importantces for training set: ")
-    feature_imp = np.reshape(rf.feature_importances_, (1, len(features)))
-    df_coef = pd.DataFrame(data=feature_imp, columns=features, dtype=None, copy=False)
-    with pd.option_context('display.max_rows', None, 'display.max_columns', len(features)):
-        f = open('model_data_analysis_random_forest.txt', 'w')
-        f.write(df_coef)
-    '''
-
-    print("Predicted Labels: ")
     predicted = rf.predict(X_test)
-    print(predicted)
+    df_twitter_2017["Random Forest Model Predicted Labels"] = predicted
 
-    print("Predicted probabilities for each label: ")
     probs = rf.predict_proba(X_test)
-    print(probs)
+    random_f_prob_no = "Random Forest No Prob"
+    random_f_prob_yes = "Random Forest Yes Prob"
+    df_twitter_2017[random_f_prob_no] = probs[:, 0]
+    df_twitter_2017[random_f_prob_yes] = probs[:, 1]
 
     accuracy = metrics.accuracy_score(y_test, predicted)
     print('Out-of-bag score estimate:' + str(rf.oob_score_))
     print('Mean accuracy score: ' + str(accuracy))
 
-    print("Confusion matrix: ")
-    print(metrics.confusion_matrix(y_test, predicted))
+    df_cm = pd.DataFrame(metrics.confusion_matrix(y_test, predicted), index=[i for i in ["Other", "Michigan"]],
+                         columns=[i for i in ["Other", "Michigan"]])
+    plt.figure(figsize=(10, 7))
+    sn.heatmap(df_cm, annot=True)
+
+    print("Classification report: ")
+    print(metrics.classification_report(y_test, predicted))
 
     if cross:
         print("Using Cross Validation to see if results hold up across all of the training set + model generalizes well: ")
@@ -404,21 +325,32 @@ def model_generation():
         scale_pos_weight=1,
         booster='gbtree')
 
-    modelXG.fit(X_train, y_train)
+    XGModelFit(modelXG, df_twitter_tot, features, True, useTrainCV=True, cv_folds=7, early_stopping_rounds=25)
 
-    plot_importance(modelXG, importance_type='gain', xlabel='Information Gain') # plot importance of features by information gain
-    plt.show()
+    modelXG.fit(X_train, y_train)
 
     # make predictions for test data
     y_pred = modelXG.predict(X_test)
-    predictions = [round(value) for value in y_pred]
+    df_twitter_2017["XGB Predicted Labels"] = y_pred
 
-    print("Predicted probabilities for each label: ")
     probs = modelXG.predict_proba(X_test)
-    print(probs)
+    random_f_prob_no = "XGB No Prob"
+    random_f_prob_yes = "XGB Yes Prob"
+    df_twitter_2017[random_f_prob_no] = probs[:, 0]
+    df_twitter_2017[random_f_prob_yes] = probs[:, 1]
 
-    accuracy = metrics.accuracy_score(y_test, predictions)
+    accuracy = metrics.accuracy_score(y_test, y_pred)
     print("Accuracy: %.2f%%" % (accuracy * 100.0))
+
+    df_cm = pd.DataFrame(metrics.confusion_matrix(y_test, y_pred), index=[i for i in ["Other", "Michigan"]],
+                         columns=[i for i in ["Other", "Michigan"]])
+    plt.figure(figsize=(10, 7))
+    sn.heatmap(df_cm, annot=True)
+
+    print("Classification report: ")
+    print(metrics.classification_report(y_test, y_pred))
+
+    df_twitter_2017.to_csv(path_or_buf='recruits_2017_results.csv')
 
 if __name__ == '__main__':
     model_generation()

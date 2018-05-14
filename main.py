@@ -3,10 +3,14 @@ from __future__ import print_function
 import base64
 import json
 import globals
+import time
 from urllib import urlencode
 from urllib2 import urlopen, Request
 import pandas as pd
 import csv
+import mysql.connector
+import datetime as dt
+import pytz
 
 consumer_key = "hDhDiDyA7J5g36Qw9eFPnEnlS"
 consumer_secret = "OofP95eIwpKxC4BV6NI24HiTPS1ScwsRxYtyV3y1dwFBUBpWfA"
@@ -14,7 +18,7 @@ consumer_secret = "OofP95eIwpKxC4BV6NI24HiTPS1ScwsRxYtyV3y1dwFBUBpWfA"
 API_ENDPOINT = 'https://api.twitter.com'
 API_VERSION = '1.1'
 
-hashTags = ["mich",
+hashTags = ["michdet",
              "uofm",
              "goblue",
              "go blue",
@@ -24,7 +28,6 @@ hashTags = ["mich",
              "wolverine",
              "michigan",
              "hail",
-             "victor",
              "victors",
              "blueblood",
              "harbaugh",
@@ -36,8 +39,8 @@ hashTags = ["mich",
              "theteam",
              "thosewhostay",
              "hailtothevictors",
-             "U+FE0F",
-            "U+303D"]
+             "\u303d\ufe0f",
+            "\u2744\ufe0f"]
 
 negativeWords = ["state", " st.", "central", "eastern", "gogreen", "green", "eastern", "western", "central", "emu",
                  "swoop", "getup", "wmu", "bronco", "eagle", "rowtheboat", "cmu", "chipp", "fireup", "northern", "tech"]
@@ -72,107 +75,93 @@ def calcFavorites(tweet):
     favorites = tweet['favorite_count']
     return favorites
 
-def isMichigan(word_list):
-    for tagString in word_list:
-        tagString.lower()
-        for tag in negativeWords:
-            if tagString.find(tag) != -1:
-                return 0
+def isMichigan(word_string):
+    word_string = word_string.lower().encode('utf8')
+    for tag in hashTags:  # for word in hashTags
+        if word_string.find(
+                tag) != -1:  # if word is in tagString
+            return 1  # return 1
 
-        for tag in hashTags:  # for word in hashTags
-            if tagString.find(
-                    tag) != -1:  # if word is in tagString
-                return 1  # return 1
-
-        return 0  # else return 0
+    return 0  # else return 0
 
 def calcMichiganMentions(data):
     # check each word in data and if it matches
     twitterData = []
     for screenName, tweetsObject in data.iteritems():
-        for tweets in tweetsObject:
-            numTweetsAnalyzing = len(tweets)
-            nativeTweets = 0
-            nativeRetweets = 0
-            nativeMichiganTweets = 0
-            nativeMichiganRetweets = 0
-            michiganTweets = 0
+        numTweetsAnalyzing = len(tweetsObject)
+        nativeTweets = 0
+        nativeRetweets = 0
+        nativeMichiganTweets = 0
+        nativeMichiganRetweets = 0
+        michiganTweets = 0
 
-            michFavorites = 0
-            michRetweets = 0
+        michFavorites = 0
+        michRetweets = 0
 
-            totFavorites = 0
-            totRetweets = 0
+        totFavorites = 0
+        totRetweets = 0
 
-            screenNameTwitterData = {}
-            screenNameTwitterData['screen_name'] = screenName
-            screenNameTwitterData['tweet_metrics'] = {}
+        screenNameTwitterData = {}
+        screenNameTwitterData['screen_name'] = screenName
+        screenNameTwitterData['tweet_metrics'] = {}
 
-            print("Analyzing Tweets for: " + screenName)
+        print("Analyzing Tweets for: " + screenName)
 
-            for tweet in tweets:
-                if "retweeted_status" in tweet:
-                    retweeted = True
-                else:
-                    retweeted = False
+        for tweet in tweetsObject:
+            if tweet[4]:
+                retweeted = True
+            else:
+                retweeted = False
 
+            if retweeted:
+                nativeRetweets += 1
+            else:
+                nativeTweets += 1
+                favorites = tweet[6]
+                totFavorites += favorites
+
+                retweets = tweet[7]
+                totRetweets += retweets
+
+            tweetText = tweet[3]
+            hashtags = tweet[5]
+
+            if isMichigan(tweetText) or isMichigan(hashtags):
+                michiganTweets += 1
                 if retweeted:
-                    nativeRetweets += 1
+                    print(tweetText, end='')
+                    print("")
+                    nativeMichiganRetweets += 1
                 else:
-                    nativeTweets += 1
-                    favorites = calcFavorites(tweet)
-                    totFavorites += favorites
+                    print("Native Tweet: " + tweetText, end='')
+                    print("")
+                    nativeMichiganTweets += 1
+                    favoritesMichFunc = tweet[6]
+                    retweetsMichFunc = tweet[7]
+                    michFavorites += favoritesMichFunc
+                    michRetweets += retweetsMichFunc
 
-                    retweets = calcRetweets(tweet)
-                    totRetweets += retweets
+        michRetweetsRatio = 0 if nativeMichiganTweets == 0 else (float(michRetweets) / float(nativeMichiganTweets))
+        michFavoritesRatio = 0 if nativeMichiganTweets == 0 else (float(michFavorites) / float(nativeMichiganTweets))
 
-                words = []
-                tweetText = tweet['text']
-                words = tweetText.split(" ")
-                hashtags = tweet['entities']['hashtags']
-                for taghash in hashtags:
-                    words.append((taghash['text']).encode('utf-8'))
+        tweetRatio = 0 if nativeTweets == 0 else (float(totRetweets) / float(nativeTweets))
+        favoriteRatio = 0 if nativeTweets == 0 else (float(totFavorites) / float(nativeTweets))
 
-                if isMichigan(words):
-                    michiganTweets += 1
-                    if retweeted:
-                        print("RT: ", end='')
-                        for word in words:
-                            print(word.encode('utf-8' + " "), end='')
-                        print("")
-                        nativeMichiganRetweets += 1
-                    else:
-                        print("Native Tweet: ", end='')
-                        for word in words:
-                            print(word.encode('utf-8') + " ", end='')
-                        print("")
-                        nativeMichiganTweets += 1
-                        favoritesMichFunc = calcFavorites(tweet)
-                        retweetsMichFunc = calcRetweets(tweet)
-                        michFavorites += favoritesMichFunc
-                        michRetweets += retweetsMichFunc
+        michFavToAllTweetRatio = 0 if favoriteRatio == 0 else (float(michFavoritesRatio) / float(favoriteRatio))
+        michTweetToAllTweetRatio = 0 if tweetRatio == 0 else (float(michRetweetsRatio) / float(tweetRatio))
 
-                michRetweetsRatio = 0 if nativeMichiganTweets == 0 else (float(michRetweets) / float(nativeMichiganTweets))
-                michFavoritesRatio = 0 if nativeMichiganTweets == 0 else (float(michFavorites) / float(nativeMichiganTweets))
+        michOverallTweetRatio = 0 if numTweetsAnalyzing == 0 else (float(michiganTweets) / float(numTweetsAnalyzing))
+        michNativeRTweetRatio = 0 if nativeRetweets == 0 else (float(nativeMichiganRetweets) / float(nativeRetweets))
+        michNativeTweetRatio = 0 if nativeTweets == 0 else (float(nativeMichiganTweets) / float(nativeTweets))
 
-                tweetRatio = 0 if nativeTweets == 0 else (float(totRetweets) / float(nativeTweets))
-                favoriteRatio = 0 if nativeTweets == 0 else (float(totFavorites) / float(nativeTweets))
+        screenNameTwitterData['tweet_metrics']['michFavToAllTweetRatio'] = michFavToAllTweetRatio
+        screenNameTwitterData['tweet_metrics']['michTweetToAllTweetRatio'] = michTweetToAllTweetRatio
 
-                michFavToAllTweetRatio = 0 if favoriteRatio == 0 else (float(michFavoritesRatio) / float(favoriteRatio))
-                michTweetToAllTweetRatio = 0 if tweetRatio == 0 else (float(michRetweetsRatio) / float(tweetRatio))
+        screenNameTwitterData['tweet_metrics']['michOverallTweetRatio'] = michOverallTweetRatio
+        screenNameTwitterData['tweet_metrics']['michNativeRTweetRatio'] = michNativeRTweetRatio
+        screenNameTwitterData['tweet_metrics']['michNativeTweetRatio'] = michNativeTweetRatio
 
-                michOverallTweetRatio = 0 if numTweetsAnalyzing == 0 else (float(michiganTweets) / float(numTweetsAnalyzing))
-                michNativeRTweetRatio = 0 if nativeRetweets == 0 else (float(nativeMichiganRetweets) / float(nativeRetweets))
-                michNativeTweetRatio = 0 if nativeTweets == 0 else (float(nativeMichiganTweets) / float(nativeTweets))
-
-                screenNameTwitterData['tweet_metrics']['michFavToAllTweetRatio'] = michFavToAllTweetRatio
-                screenNameTwitterData['tweet_metrics']['michTweetToAllTweetRatio'] = michTweetToAllTweetRatio
-
-                screenNameTwitterData['tweet_metrics']['michOverallTweetRatio'] = michOverallTweetRatio
-                screenNameTwitterData['tweet_metrics']['michNativeRTweetRatio'] = michNativeRTweetRatio
-                screenNameTwitterData['tweet_metrics']['michNativeTweetRatio'] = michNativeTweetRatio
-
-                twitterData.append(screenNameTwitterData)
+        twitterData.append(screenNameTwitterData)
 
     return twitterData
 
@@ -231,7 +220,7 @@ def followers(token):
     baseURL = "https://api.twitter.com/1.1/friends/ids.json"
     pass
 
-def batcher(token, recruits, year):
+def batcher(token, recruits, year, cursor, cnx):
     base_url = "https://api.twitter.com/1.1/statuses/user_timeline.json"
     recruitsListTweets = {}
 
@@ -248,66 +237,169 @@ def batcher(token, recruits, year):
         maxID = globals.nsd2017maxID
         lowerID = globals.nsd2017lowerID
 
-    for recruit in recruits:
+    requests = 0
+
+    print("Number of recruits: " + str(len(recruits)))
+
+    f = '%Y-%m-%d %H:%M:%S'
+    recruit_info_q = "SELECT Date_Committed FROM recruit_info WHERE Twitter_Handle = %s"
+
+    start_time = time.time()
+    for counter, recruit in enumerate(recruits):
         # find last tweet since national signing day
-        params = {"screen_name": recruit, "count": str(200), "include_rts": 1, "max_id": str(maxID), "since_id": str(lowerID), ""}
+
+        last_first_element = 0
+        last_last_element = 0
+
+        params = {"screen_name": recruit, "count": str(200), "include_rts": 1, "max_id": str(maxID), "since_id": str(lowerID)}
         timeline_data = []
 
-        while True:
-            url = (base_url + "?" + urlencode(params))
+        # check if recruit is in database
+        recruit_check = "SELECT * FROM recruits WHERE twitterScreenName = %s"
+        recruit_check_data = (recruit,)
 
-            try:
-                tweet_data = standardRequest(url, token)
-            except:
-                break
+        cursor.execute(recruit_check, recruit_check_data)
+        recruit_check_res = cursor.fetchall()
 
-            if not tweet_data:
-                break
+        get_recruit_tweets = "SELECT * FROM tweets WHERE twitterScreenName = %s"
+        get_recruit_tweets_data = (recruit,)
 
-            timeline_data.append(tweet_data)
+        if cursor.rowcount > 0:
+            if recruit_check_res[0][2]:
+                cursor.execute(get_recruit_tweets, get_recruit_tweets_data)
 
-            last_element = tweet_data[-1]
-            amount_tweets = len(tweet_data)
+                print("Getting tweets from database for: " + str(recruit))
 
-            newMaxId = last_element['id']
-            if (last_element['id'] < lowerID):
-                break
-
-            params["max_id"] = str(newMaxId)
-
-        # check to see if any tweet data on them
-        if not timeline_data:
-            recruitsNonTwitterData.append(params["screen_name"])
+                recruitsListTweets[recruit] = cursor.fetchall()
         else:
-            recruitsTwitterData.append(params["screen_name"])
-            recruitsListTweets[params["screen_name"]] = timeline_data
+            # get recruit info
+            recruit_info_q_d = (recruit,)
+            cursor.execute(recruit_info_q, recruit_info_q_d)
+
+            recruit_info_d = cursor.fetchall()
+
+            sql_commit_date = recruit_info_d[0][0]
+
+            while True:
+                url = (base_url + "?" + urlencode(params))
+
+                try:
+                    tweet_data = standardRequest(url, token)
+                    requests += 1
+                    print("Request Number: " + str(requests) + " for: " + str(recruit) + " number " + str(counter))
+                except:
+                    break
+
+                if not tweet_data:
+                    break
+
+                timeline_data.append(tweet_data)
+
+                first_element = tweet_data[0]['id']
+                last_element = tweet_data[-1]['id']
+
+                newMaxId = last_element
+                if (last_element < lowerID or (first_element == last_first_element and last_element == last_last_element)):
+                    del timeline_data[-1]
+                    break
+
+                params["max_id"] = str(newMaxId)
+                last_first_element = first_element
+                last_last_element = last_element
+
+                if requests == 900:
+                    end_time = time.time()
+                    time_elapsed = end_time - start_time
+                    api_sleep_time = 900 - time_elapsed
+
+                    if api_sleep_time > 0:
+                        print("Stalling for " + str(api_sleep_time) + " seconds for twitter api rate limit")
+                        time.sleep(api_sleep_time)
+
+                    start_time = time.time()
+                    requests = 0
+
+            insert_batch_tweets = "INSERT INTO tweets (twitterScreenName, tweetID, tweet, retweet, hashtags, numFavorites, numRetweets) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+            insert_recruit = "INSERT INTO recruits (twitterScreenName, tweetData) VALUES (%s, %s)"
+            # check to see if any tweet data on them
+            # store tweet data
+            tweet_list = []
+
+            recruitsListTweets[recruit] = []
+
+            inserted_recruit = False
+            if not timeline_data:
+                recruitsNonTwitterData.append(params["screen_name"])
+                insert_recruit_data = (recruit,0)
+                cursor.execute(insert_recruit, insert_recruit_data)
+                inserted_recruit = True
+            else:
+                recruitsTwitterData.append(params["screen_name"])
+
+                for counter, tweet_batch in enumerate(timeline_data):
+                    for counter_tweet_batch, tweet in enumerate(tweet_batch):
+                        if counter != 0 and counter_tweet_batch == 0:
+                            continue
+                        else:
+                            ts = dt.datetime.strptime(tweet['created_at'], '%a %b %d %H:%M:%S +0000 %Y')
+
+                            if ts <= sql_commit_date:
+                                retweeted = 0
+                                if "retweeted_status" in tweet:
+                                    retweeted = 1
+
+                                tweet_text = tweet['text']
+                                hashtags = tweet['entities']['hashtags']
+                                hashtag_string = ''
+                                for taghash in hashtags:
+                                    hashtag_string += taghash['text'].encode('utf-8')
+                                    hashtag_string += " "
+
+                                tweet_id = tweet['id_str']
+
+                                num_favorites = -1
+                                num_retweets = -1
+
+                                if not retweeted:
+                                    num_retweets = calcRetweets(tweet)
+                                    num_favorites = calcFavorites(tweet)
+
+                                tweet_database_data = (recruit, tweet_id, tweet_text, retweeted, hashtag_string, num_favorites,
+                                                       num_retweets)
+                                tweet_list.append(tweet_database_data)
+
+            # have list full of tweeter data, now store in
+            if len(tweet_list) == 0 and inserted_recruit is False:
+                insert_recruit_data = (recruit,0)
+                cursor.execute(insert_recruit, insert_recruit_data)
+            elif inserted_recruit is False:
+                recruitsListTweets[recruit] = tweet_list
+                cursor.executemany(insert_batch_tweets, tweet_list)
+                insert_recruit_data = (recruit, 1)
+                cursor.execute(insert_recruit, insert_recruit_data)
+
+            cnx.commit()
 
     return recruitsListTweets, recruitsNonTwitterData, recruitsTwitterData
 
 
 def read_in_csv(recruitsFile):
-    recruitsFile = "Twitter_Model_Data_2016.csv"
-
     data = []
     with open(recruitsFile, 'rb') as csvfile:
         reader = csv.reader(csvfile, delimiter=',', quotechar='|')
         i = 0
         for row in reader:
-            if i == 0:
-                i = 1
-                pass
-            else:
-                sub = []
-                sub.append(row[0])
-                sub.append(row[1])
-                sub.append(row[4])
-                sub.append(row[5])
-                sub.append(row[6])
-                sub.append(row[7])
-                sub.append(row[8])
-                sub.append(row[9])
-                sub.append(row[10])
-                data.append(sub)
+            sub = []
+            sub.append(row[0])
+            sub.append(row[1])
+            sub.append(int(row[4]))
+            sub.append(int(row[5]))
+            sub.append(int(row[6]))
+            sub.append(int(row[7]))
+            sub.append(int(row[8]))
+            sub.append(int(row[9]))
+            sub.append(int(row[10]))
+            data.append(sub)
 
     headers = ['Name', 'Twitter Handle', 'Miles from AA', 'First Offer', 'Last Offer', 'Official Visit',
                'Last Official Visit', 'Attended Michigan', 'In-State']
@@ -315,6 +407,12 @@ def read_in_csv(recruitsFile):
     return df
 
 def main(year):
+    cnx = mysql.connector.connect(user=globals.databaseUser,
+                                  host=globals.databaseHost,
+                                  database=globals.databaseName,
+                                  password=globals.databasePassword)
+    cursor = cnx.cursor()
+
     REQUEST_TOKEN_URL = '%s/oauth2/token' % (API_ENDPOINT)
     token = authorize(REQUEST_TOKEN_URL, consumer_key, consumer_secret)
 
@@ -325,7 +423,7 @@ def main(year):
     if year == 2017:
         analyzeScreenNames = globals.recruits2017
 
-    recruitsListTweets, recruitsNonTwitterData, recruitsTwitterData = batcher(token, analyzeScreenNames, year)
+    recruitsListTweets, recruitsNonTwitterData, recruitsTwitterData = batcher(token, analyzeScreenNames, year, cursor, cnx)
 
     print("Recruits without Twitter Data: ")
     for name in recruitsNonTwitterData:
