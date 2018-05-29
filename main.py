@@ -401,7 +401,7 @@ def read_in_csv(recruitsFile):
             sub.append(int(row[10]))
             data.append(sub)
 
-    headers = ['Name', 'Twitter Handle', 'Miles from AA', 'First Offer', 'Last Offer', 'Official Visit',
+    headers = ['Name', 'Twitter Handle', 'Miles from AA', 'First Offer', 'Last Offer', 'OfficialVisit',
                'Last Official Visit', 'Attended Michigan', 'In-State']
     df = pd.DataFrame(data, columns=headers)
     return df
@@ -445,7 +445,7 @@ def main(year):
     df_signing = read_in_csv(twitter_csv_data_filename)
     df_signing.head()
 
-    df_features = pd.merge(left=df_signing[['Name', 'Twitter Handle', 'Miles from AA', 'First Offer', 'Last Offer', 'Official Visit', 'Last Official Visit', 'Attended Michigan', 'In-State']],
+    df_features = pd.merge(left=df_signing[['Name', 'Twitter Handle', 'Miles from AA', 'First Offer', 'Last Offer', 'OfficialVisit', 'Last Official Visit', 'Attended Michigan', 'In-State']],
                            right=df_twitter[['screenName', 'michFavToAllTweetRatio', 'michTweetToAllTweetRatio', 'michOverallTweetRatio', 'michNativeRTweetRatio', 'michNativeTweetRatio']],
                            how='inner', left_on='Twitter Handle', right_on='screenName')
 

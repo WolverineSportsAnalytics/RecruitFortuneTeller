@@ -39,22 +39,31 @@ def XGModelFit(XGBModel, df_twitter, features, plot, useTrainCV=True, cv_folds=7
     print("Accuracy : %.4g" % metrics.accuracy_score(df_twitter[target].values, df_review_predictions))
 
     if plot:
-        xgb.plot_importance(XGBModel, importance_type='gain')
+        xgb.plot_importance(XGBModel, importance_type='weight')
         plt.show()
 
 def model_generation():
-    # test split
-    test_split = 0.7
-
     df_twitter_2016 = main.main(2016)
     df_twitter_2017 = main.main(2017)
+
+    official_visit_analysis = True
+
+    if official_visit_analysis:
+        df_twitter_2016 = df_twitter_2016.query('OfficialVisit==1')
+        df_twitter_2017 = df_twitter_2017.query('OfficialVisit==1')
 
     dfs_twitter = [df_twitter_2016, df_twitter_2017]
 
     features = ['Intercept', 'Miles from AA', 'First Offer',
-                'Last Offer', 'Official Visit', 'Last Official Visit', 'In-State',
-                'michFavToAllTweetRatio', 'michTweetToAllTweetRatio', 'michOverallTweetRatio',
+                'Last Offer', 'OfficialVisit', 'Last Official Visit', 'In-State',
+                'michFavToAllTweetRatio', 'michTweetToAllTweetRatio',
                 'michNativeRTweetRatio', 'michNativeTweetRatio']
+
+    if official_visit_analysis:
+        features = ['Intercept', 'Miles from AA', 'First Offer',
+                    'Last Offer', 'Last Official Visit', 'In-State',
+                    'michFavToAllTweetRatio', 'michTweetToAllTweetRatio',
+                    'michNativeRTweetRatio', 'michNativeTweetRatio']
 
     #intercept term
     df_twitter_2016.insert(0, 'Intercept', 1, allow_duplicates=True)
@@ -75,9 +84,6 @@ def model_generation():
     X = df_twitter[features].values
     y = df_twitter[target].values
 
-    # Run Through Prelim Model Pipeline
-    # model_pipeline(X_train, y_train, X_test, y_test)
-
     '''
     Data Exploration
     '''
@@ -88,7 +94,7 @@ def model_generation():
     '''
     Model Generation
     '''
-    cross = False
+    cross = True
     # using 7 fold cross validation
 
     print ("Logistic Regression Model Results: ")
@@ -218,20 +224,20 @@ def model_generation():
         print(scores.mean())
 
     # XGBoosted
-    colsample_bytree = 0.9
-    subsample = 0.9
-    num_estimators = 90
-    max_depth = 3
+    colsample_bytree = 0.8
+    subsample = 0.7
+    num_estimators = 140
+    max_depth = 1
     min_child_weight = 5
-    gamma = 0.2
-    reg_alpha = 0.01
+    gamma = 0
+    reg_alpha = 0.1
 
     '''
     Cross Validation
     '''
     if cross:
         tree_params_test_one = {
-            'max_depth': range(1, 9, 2),
+            'max_depth': range(1,2,9),
             'min_child_weight': range(1, 6, 2)
         }
 
@@ -240,7 +246,7 @@ def model_generation():
                                                         objective='binary:logistic', scale_pos_weight=1),
                                 param_grid=tree_params_test_one, scoring='roc_auc', n_jobs=4, iid=False, cv=7)
 
-        tree_search.fit(df_twitter[features], df_twitter[target])
+        tree_search.fit(df_twitter_tot[features], df_twitter_tot[target])
 
         print("Best Tree Params: ")
         print(tree_search.best_params_)
@@ -260,7 +266,7 @@ def model_generation():
                                                         objective='binary:logistic', nthread=4, scale_pos_weight=1,
                                                         seed=27),
                                 param_grid=gamma_param, scoring='roc_auc', n_jobs=4, iid=False, cv=7)
-        gamma_search.fit(df_twitter[features], df_twitter[target])
+        gamma_search.fit(df_twitter_tot[features], df_twitter_tot[target])
         print("Best Tree Params: ")
         print(gamma_search.best_params_)
 
@@ -281,7 +287,7 @@ def model_generation():
                                                         seed=27),
                                 param_grid=subsample_colsample_bytree, scoring='roc_auc', n_jobs=4, iid=False, cv=7)
 
-        subsample_colsample_bytree_search.fit(df_twitter[features], df_twitter[target])
+        subsample_colsample_bytree_search.fit(df_twitter_tot[features], df_twitter_tot[target])
         print("Best Tree Params: ")
         print(subsample_colsample_bytree_search.best_params_)
 
@@ -300,7 +306,7 @@ def model_generation():
                                                         objective='binary:logistic', nthread=4, scale_pos_weight=1,
                                                         seed=27),
                                 param_grid=reg_params, scoring='roc_auc', n_jobs=4, iid=False, cv=5)
-        reg_search.fit(df_twitter[features], df_twitter[target])
+        reg_search.fit(df_twitter_tot[features], df_twitter_tot[target])
         print("Best Tree Params: ")
         print(reg_search.best_params_)
 
@@ -312,8 +318,8 @@ def model_generation():
     # reduce learning rate and generate many trees
     # get non linear relationships
     modelXG = XGBClassifier(
-        learning_rate=0.01,
-        n_estimators=5000,
+        learning_rate=0.001,
+        n_estimators=1000,
         max_depth=max_depth,
         min_child_weight=min_child_weight,
         gamma=gamma,
